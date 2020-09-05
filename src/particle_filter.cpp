@@ -117,7 +117,28 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       predicted.push_back(new_pred);
     }
 
-    //
+    //associate particle obs to landmark
+    vector<Map::single_landmark_s> associasons;
+
+    for (auto pred : predicted){
+          double min_diff;
+          bool first_iter = true;
+          Map::single_landmark_s association;
+
+      for (auto mark : map_landmarks.landmark_list){
+        double diff = pow(pred.x - mark.x_f, 2) + pow(pred.y - mark.y_f, 2);
+
+        if(first_iter || (diff < min_diff)){
+          min_diff = diff;
+          association = mark;
+        }
+        first_iter = false;
+      }
+
+      associasons.push_back(association);
+    }
+
+    //update weight
   }
 
 }
