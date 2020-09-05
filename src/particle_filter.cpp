@@ -65,7 +65,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
 
   double vel = velocity/yaw_rate;
 
-  for (auto p : particles){
+  for (auto& p : particles){
     double pred_t = p.theta + delta_t*yaw_rate;
     double pred_x = p.x + vel*(sin(pred_t) - sin(p.theta));
     double pred_y = p.y + vel*(cos(p.theta) - cos(pred_t));
@@ -106,11 +106,16 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
+  const double sig_x = std_landmark[0];
+  const double sig_y = std_landmark[1];
 
-  for (auto p : particles){
+  const double gauss_norm = 1.0 / (2.0*M_PI*sig_x*sig_y);
+  double sum_weights = 0.0;
+
+  for (auto& p : particles){
     //transform particle obs to map coord
     vector<LandmarkObs> predicted;
-    for (auto obs : observations){
+    for (auto& obs : observations){
       LandmarkObs new_pred;
       new_pred.x = p.x + obs.x*cos(p.theta) - obs.y*sin(p.theta);
       new_pred.y = p.y + obs.x*sin(p.theta) + obs.y*cos(p.theta);
@@ -120,12 +125,12 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     //associate particle obs to landmark
     vector<Map::single_landmark_s> associasons;
 
-    for (auto pred : predicted){
+    for (auto& pred : predicted){
           double min_diff;
           bool first_iter = true;
           Map::single_landmark_s association;
 
-      for (auto mark : map_landmarks.landmark_list){
+      for (auto& mark : map_landmarks.landmark_list){
         double diff = pow(pred.x - mark.x_f, 2) + pow(pred.y - mark.y_f, 2);
 
         if(first_iter || (diff < min_diff)){
@@ -139,8 +144,20 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     }
 
     //update weight
+    for (int i = 0; i < predicted.size(); ++i){
+      auto c_p = predicted[i];
+      auto c_a = associasons[i];
+
+      double exponent = (pow(c_p.x -c_a.x_f, 2) / (2 * pow(sig_x, 2)))
+               + (pow(c_p.y -c_a.y_f, 2) / (2 * pow(sig_y, 2)));
+      p.weight *= (gauss_norm * exp(-exponent));
+    }
+
+    sum_weights += p.weight;
   }
 
+  //normalize
+  for (auto& p : particles) p.weight /= sum_weights;
 }
 
 void ParticleFilter::resample() {
