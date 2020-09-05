@@ -42,6 +42,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     sample.x = dist_x(gen);
     sample.y = dist_y(gen);
     sample.theta = dist_t(gen);
+    sample.weight = 1.0;
     particles.push_back(sample);
   }
 
@@ -105,6 +106,19 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
+
+  for (auto p : particles){
+    //transform particle obs to map coord
+    vector<LandmarkObs> predicted;
+    for (auto obs : observations){
+      LandmarkObs new_pred;
+      new_pred.x = p.x + obs.x*cos(p.theta) - obs.y*sin(p.theta);
+      new_pred.y = p.y + obs.x*sin(p.theta) + obs.y*cos(p.theta);
+      predicted.push_back(new_pred);
+    }
+
+    //
+  }
 
 }
 
