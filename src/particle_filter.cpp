@@ -45,7 +45,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     sample.weight = 1.0;
     particles.push_back(sample);
   }
-
+is_initialized = true;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], 
@@ -66,6 +66,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
   double vel = velocity/yaw_rate;
 
   for (auto& p : particles){
+    p.weight = 1.0;
     double pred_t = p.theta + delta_t*yaw_rate;
     double pred_x = p.x + vel*(sin(pred_t) - sin(p.theta));
     double pred_y = p.y + vel*(cos(p.theta) - cos(pred_t));
@@ -173,7 +174,7 @@ void ParticleFilter::resample() {
     weights[i] = particles[i].weight;
   }
 
-  std::discrete_distribution<vector<double>::iterator> d(weights.begin(), weights.end());
+  std::discrete_distribution<> d(weights.begin(), weights.end());
 
   vector<Particle> new_particles;
   for (int i = 0; i < num_particles; ++i){
