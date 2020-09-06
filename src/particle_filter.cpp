@@ -30,7 +30,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
    * NOTE: Consult particle_filter.h for more information about this method 
    *   (and others in this file).
    */
-  num_particles = 50;  // TODO: Set the number of particles
+  num_particles = 30;  // TODO: Set the number of particles
   std::default_random_engine gen;
 
   std::normal_distribution<double> dist_x(x, std[0]);
@@ -61,22 +61,24 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
   std::normal_distribution<double> dist_x(0.0, std_pos[0]);
   std::normal_distribution<double> dist_y(0.0, std_pos[1]);
   std::normal_distribution<double> dist_t(0.0, std_pos[2]);
+  
+  double vel = velocity/yaw_rate;
 
-  if(yaw_rate < 0.00001){
+  if(std::isnan(vel)){
+    double vel = velocity/yaw_rate;
+    std::cout << vel << std::endl;
     for (auto& p : particles){
       p.weight = 1.0;
       double pred_t = p.theta;
       double pred_x = p.x + velocity*delta_t*cos(pred_t);
       double pred_y = p.y + velocity*delta_t*sin(pred_t);
-
+      
       p.x = pred_x + dist_x(gen);
       p.y = pred_y + dist_y(gen);
       p.theta = pred_t + dist_t(gen);
     }
   }
   else {
-    double vel = velocity/yaw_rate;
-
     for (auto& p : particles){
       p.weight = 1.0;
       double pred_t = p.theta + delta_t*yaw_rate;
@@ -123,7 +125,6 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   const double sig_y = std_landmark[1];
 
   const double gauss_norm = 1.0 / (2.0*M_PI*sig_x*sig_y);
-  double sum_weights = 0.0;
 
   for (auto& p : particles){
     //transform particle obs to map coord
@@ -157,7 +158,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     }
 
     //update weight
-    for (int i = 0; i < predicted.size(); ++i){
+    for (unsigned int i = 0; i < predicted.size(); ++i){
       auto c_p = predicted[i];
       auto c_a = associasons[i];
 
@@ -165,12 +166,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
                + (pow(c_p.y -c_a.y_f, 2) / (2 * pow(sig_y, 2)));
       p.weight *= (gauss_norm * exp(-exponent));
     }
-
-    //sum_weights += p.weight;
   }
-
-  //normalize
-  //for (auto& p : particles) p.weight /= sum_weights;
 }
 
 void ParticleFilter::resample() {
