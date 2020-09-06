@@ -12,12 +12,6 @@
 #include <iostream>
 #include <iterator>
 #include <numeric>
-#include <random>
-#include <string>
-#include <vector>
-#include <array>
-
-#include "helper_functions.h"
 
 using std::string;
 using std::vector;
@@ -36,15 +30,11 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
   std::normal_distribution<double> dist_y(y, std[1]);
   std::normal_distribution<double> dist_t(theta, std[2]);
   
-  //std::array<Particle, num_particles> test; 
-
   for(int i = 0; i < num_particles; ++i){
-    Particle sample;
-    sample.x = dist_x(gen);
-    sample.y = dist_y(gen);
-    sample.theta = dist_t(gen);
-    sample.weight = 1.0;
-    particles.push_back(sample);
+    particles[i].x = dist_x(gen);
+    particles[i].y = dist_y(gen);
+    particles[i].theta = dist_t(gen);
+    particles[i].weight = 1.0;
   }
 is_initialized = true;
 }
@@ -63,11 +53,8 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
   std::normal_distribution<double> dist_t(0.0, std_pos[2]);
   
   double vel = velocity/yaw_rate;
-  std::cout << vel << std::endl;
 
   if(std::isinf(vel)){
-    double vel = velocity/yaw_rate;
-    std::cout << vel << std::endl;
     for (auto& p : particles){
       p.weight = 1.0;
       double pred_t = p.theta;
@@ -93,8 +80,8 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
   }
 }
 
-void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted, 
-                                     vector<LandmarkObs>& observations) {
+vector<Map::single_landmark_s> ParticleFilter::dataAssociation(const vector<LandmarkObs>& predicted, 
+                                     const Map &map_landmarks) {
   /**
    * TODO: Find the predicted measurement that is closest to each 
    *   observed measurement and assign the observed measurement to this 
@@ -103,7 +90,38 @@ void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
    *   probably find it useful to implement this method and use it as a helper 
    *   during the updateWeights phase.
    */
+  
+    vector<Map::single_landmark_s> associasons;
 
+    for (auto& pred : predicted){
+          double min_diff;
+          bool first_iter = true;
+          Map::single_landmark_s association;
+
+      for (auto& mark : map_landmarks.landmark_list){
+        double diff = pow(pred.x - mark.x_f, 2) + pow(pred.y - mark.y_f, 2);
+
+        if(first_iter || (diff < min_diff)){
+          min_diff = diff;
+          association = mark;
+        }
+        first_iter = false;
+      }
+
+      associasons.push_back(association);
+    }
+	return associasons;
+}
+
+vector<LandmarkObs> ParticleFilter::transformObservations(const Particle& p, const vector<LandmarkObs> &observations){
+    vector<LandmarkObs> predicted;
+    for (auto& obs : observations){
+      LandmarkObs new_pred;
+      new_pred.x = p.x + obs.x*cos(p.theta) - obs.y*sin(p.theta);
+      new_pred.y = p.y + obs.x*sin(p.theta) + obs.y*cos(p.theta);
+      predicted.push_back(new_pred);
+    }
+  return predicted;
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
@@ -128,42 +146,15 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
   const double gauss_norm = 1.0 / (2.0*M_PI*sig_x*sig_y);
 
   for (auto& p : particles){
-    //transform particle obs to map coord
-    vector<LandmarkObs> predicted;
-    for (auto& obs : observations){
-      LandmarkObs new_pred;
-      new_pred.x = p.x + obs.x*cos(p.theta) - obs.y*sin(p.theta);
-      new_pred.y = p.y + obs.x*sin(p.theta) + obs.y*cos(p.theta);
-      predicted.push_back(new_pred);
-    }
+    const auto predicted = transformObservations(p, observations);
 
-    //associate particle obs to landmark
-    vector<Map::single_landmark_s> associasons;
+    const auto associations = dataAssociation(predicted, map_landmarks);
 
-    for (auto& pred : predicted){
-          double min_diff;
-          bool first_iter = true;
-          Map::single_landmark_s association;
-
-      for (auto& mark : map_landmarks.landmark_list){
-        double diff = pow(pred.x - mark.x_f, 2) + pow(pred.y - mark.y_f, 2);
-
-        if(first_iter || (diff < min_diff)){
-          min_diff = diff;
-          association = mark;
-        }
-        first_iter = false;
-      }
-
-      associasons.push_back(association);
-    }
-
-    //update weight
     for (unsigned int i = 0; i < predicted.size(); ++i){
-      auto c_p = predicted[i];
-      auto c_a = associasons[i];
+      const auto& c_p = predicted[i];
+      const auto& c_a = associations[i];
 
-      double exponent = (pow(c_p.x -c_a.x_f, 2) / (2 * pow(sig_x, 2)))
+      const double exponent = (pow(c_p.x -c_a.x_f, 2) / (2 * pow(sig_x, 2)))
                + (pow(c_p.y -c_a.y_f, 2) / (2 * pow(sig_y, 2)));
       p.weight *= (gauss_norm * exp(-exponent));
     }
@@ -177,19 +168,19 @@ void ParticleFilter::resample() {
    * NOTE: You may find std::discrete_distribution helpful here.
    *   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
    */
-  vector<double> weights(num_particles);
+  std::array<double, num_particles> weights;
   for (int i = 0; i < num_particles; ++i){
     weights[i] = particles[i].weight;
   }
 
   std::discrete_distribution<> d(weights.begin(), weights.end());
 
-  vector<Particle> new_particles;
+  std::array<Particle, num_particles> new_particles;
   for (int i = 0; i < num_particles; ++i){
-    new_particles.push_back(particles[d(gen)]);
+    new_particles[i] = particles[d(gen)];
   }
 
-  particles = std::move(new_particles);
+  particles = new_particles;
 }
 
 void ParticleFilter::SetAssociations(Particle& particle, 

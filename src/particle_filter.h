@@ -11,6 +11,7 @@
 
 #include <string>
 #include <vector>
+#include <array>
 #include <random>
 #include "helper_functions.h"
 
@@ -26,7 +27,17 @@ struct Particle {
 };
 
 
-class ParticleFilter {  
+class ParticleFilter {
+  
+ // Number of particles to draw
+ static constexpr int num_particles{30};
+  
+ // random engine
+ std::default_random_engine gen;
+  
+ // Flag, if filter is initialized
+ bool is_initialized;
+  
  public:
   // Constructor
   // @param num_particles Number of particles
@@ -64,8 +75,10 @@ class ParticleFilter {
    * @param predicted Vector of predicted landmark observations
    * @param observations Vector of landmark observations
    */
-  void dataAssociation(std::vector<LandmarkObs> predicted, 
-                       std::vector<LandmarkObs>& observations);
+  std::vector<Map::single_landmark_s> dataAssociation(const std::vector<LandmarkObs>& predicted, 
+                       const Map &map_landmarks);
+  
+  std::vector<LandmarkObs> transformObservations(const Particle& p, const std::vector<LandmarkObs> &observations);
   
   /**
    * updateWeights Updates the weights for each particle based on the likelihood
@@ -110,20 +123,7 @@ class ParticleFilter {
   std::string getSenseCoord(Particle best, std::string coord);
 
   // Set of current particles
-  std::vector<Particle> particles;
-
- private:
-  // Number of particles to draw
-  static constexpr int num_particles{30};
-  
-  // random engine
-  std::default_random_engine gen;
-  
-  // Flag, if filter is initialized
-  bool is_initialized;
-  
-  // Vector of weights of all particles
-  std::vector<double> weights; 
+  std::array<Particle, num_particles> particles;
 };
 
 #endif  // PARTICLE_FILTER_H_
