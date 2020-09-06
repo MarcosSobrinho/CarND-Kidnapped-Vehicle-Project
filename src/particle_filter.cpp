@@ -62,20 +62,32 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
   std::normal_distribution<double> dist_y(0.0, std_pos[1]);
   std::normal_distribution<double> dist_t(0.0, std_pos[2]);
 
+  if(yaw_rate < 0.00001){
+    for (auto& p : particles){
+      p.weight = 1.0;
+      double pred_t = p.theta;
+      double pred_x = p.x + velocity*delta_t*cos(pred_t);
+      double pred_y = p.y + velocity*delta_t*sin(pred_t);
 
-  double vel = velocity/yaw_rate;
-
-  for (auto& p : particles){
-    p.weight = 1.0;
-    double pred_t = p.theta + delta_t*yaw_rate;
-    double pred_x = p.x + vel*(sin(pred_t) - sin(p.theta));
-    double pred_y = p.y + vel*(cos(p.theta) - cos(pred_t));
-
-    p.x = pred_x + dist_x(gen);
-    p.y = pred_y + dist_y(gen);
-    p.theta = pred_t + dist_t(gen);
+      p.x = pred_x + dist_x(gen);
+      p.y = pred_y + dist_y(gen);
+      p.theta = pred_t + dist_t(gen);
+    }
   }
+  else {
+    double vel = velocity/yaw_rate;
 
+    for (auto& p : particles){
+      p.weight = 1.0;
+      double pred_t = p.theta + delta_t*yaw_rate;
+      double pred_x = p.x + vel*(sin(pred_t) - sin(p.theta));
+      double pred_y = p.y + vel*(cos(p.theta) - cos(pred_t));
+
+      p.x = pred_x + dist_x(gen);
+      p.y = pred_y + dist_y(gen);
+      p.theta = pred_t + dist_t(gen);
+    }
+  }
 }
 
 void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted, 
